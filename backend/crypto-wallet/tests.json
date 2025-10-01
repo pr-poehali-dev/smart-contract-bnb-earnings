@@ -1,0 +1,61 @@
+{
+  "tests": [
+    {
+      "name": "Get balance",
+      "method": "GET",
+      "path": "/?action=balance&wallet=0x1234567890123456789012345678901234567890",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "balance": "string",
+        "wallet": "string",
+        "platform_wallet": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get referral stats",
+      "method": "GET",
+      "path": "/?action=referral_stats",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "total_earned": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Withdraw BNB",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "withdraw",
+        "amount": "0.05",
+        "from_wallet": "0x1234567890123456789012345678901234567890"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "amount": "string",
+        "to": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Buy package",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "buy_package",
+        "package_id": 1,
+        "amount": "0.1",
+        "wallet": "0x1234567890123456789012345678901234567890",
+        "referrer": "REF123ABC"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "package_id": 1
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -1,17 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
+import { BrowserProvider, formatEther, parseEther } from 'ethers';
+
+const BACKEND_URL = 'https://functions.poehali.dev/792345ca-214e-4b02-9fd9-1f95c3faceef';
+const PLATFORM_WALLET = '0x98b49bb2c613700D3c31266d245392bCE61bD991';
 
 const Index = () => {
   const { toast } = useToast();
   const [walletConnected, setWalletConnected] = useState(false);
-  const [balance] = useState('0.00');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [balance, setBalance] = useState('0.00');
   const [referralCode] = useState('REF123ABC');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const packages = [
     {
@@ -43,16 +50,66 @@ const Index = () => {
     { id: 3, address: '0x9c3b...7e4d', level: 1, earned: '0.023', status: 'active' }
   ];
 
-  const connectWallet = () => {
-    setWalletConnected(true);
-    toast({
-      title: 'Кошелек подключен',
-      description: 'Ваш BNB кошелек успешно подключен'
-    });
+  useEffect(() => {
+    if (typeof window.ethereum !== 'undefined') {
+      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+        if (accounts.length === 0) {
+          setWalletConnected(false);
+          setWalletAddress('');
+          setBalance('0.00');
+        } else {
+          setWalletAddress(accounts[0]);
+          loadBalance(accounts[0]);
+        }
+      });
+    }
+  }, []);
+
+  const loadBalance = async (address: string) => {
+    try {
+      const provider = new BrowserProvider(window.ethereum);
+      const balance = await provider.getBalance(address);
+      setBalance(parseFloat(formatEther(balance)).toFixed(4));
+    } catch (error) {
+      console.error('Error loading balance:', error);
+    }
+  };
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum === 'undefined') {
+      toast({
+        title: 'MetaMask не найден',
+        description: 'Пожалуйста, установите MetaMask для работы с платформой',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const provider = new BrowserProvider(window.ethereum);
+      const accounts = await provider.send('eth_requestAccounts', []);
+      
+      if (accounts.length > 0) {
+        setWalletAddress(accounts[0]);
+        setWalletConnected(true);
+        await loadBalance(accounts[0]);
+        
+        toast({
+          title: 'Кошелек подключен',
+          description: `Адрес: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка подключения',
+        description: error.message || 'Не удалось подключить кошелек',
+        variant: 'destructive'
+      });
+    }
   };
 
   const copyReferralLink = () => {
-    const link = `https://crypto-platform.com/ref/${referralCode}`;
+    const link = `${window.location.origin}?ref=${referralCode}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -60,6 +117,130 @@ const Index = () => {
       title: 'Ссылка скопирована',
       description: 'Реферальная ссылка скопирована в буфер обмена'
     });
+  };
+
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || parseFloat(withdrawAmount) < 0.01) {
+      toast({
+        title: 'Ошибка',
+        description: 'Минимальная сумма вывода: 0.01 BNB',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (parseFloat(withdrawAmount) > parseFloat(balance)) {
+      toast({
+        title: 'Ошибка',
+        description: 'Недостаточно средств на балансе',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const tx = await signer.sendTransaction({
+        to: PLATFORM_WALLET,
+        value: parseEther(withdrawAmount)
+      });
+
+      toast({
+        title: 'Транзакция отправлена',
+        description: 'Ожидайте подтверждения в сети...'
+      });
+
+      await tx.wait();
+
+      await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'withdraw',
+          amount: withdrawAmount,
+          from_wallet: walletAddress,
+          tx_hash: tx.hash
+        })
+      });
+
+      await loadBalance(walletAddress);
+      setWithdrawAmount('');
+
+      toast({
+        title: 'Успешно!',
+        description: `Выведено ${withdrawAmount} BNB`
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка транзакции',
+        description: error.message || 'Не удалось выполнить транзакцию',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleBuyPackage = async (pkg: any) => {
+    if (!walletConnected) {
+      toast({
+        title: 'Подключите кошелек',
+        description: 'Сначала подключите MetaMask',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      const tx = await signer.sendTransaction({
+        to: PLATFORM_WALLET,
+        value: parseEther(pkg.price)
+      });
+
+      toast({
+        title: 'Оплата отправлена',
+        description: 'Ожидайте подтверждения...'
+      });
+
+      await tx.wait();
+
+      await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'buy_package',
+          package_id: pkg.id,
+          amount: pkg.price,
+          wallet: walletAddress,
+          referrer: new URLSearchParams(window.location.search).get('ref') || '',
+          tx_hash: tx.hash
+        })
+      });
+
+      await loadBalance(walletAddress);
+
+      toast({
+        title: 'Пакет куплен!',
+        description: `Вы приобрели пакет ${pkg.name} за ${pkg.price} BNB`
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Ошибка покупки',
+        description: error.message || 'Не удалось купить пакет',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -167,15 +348,16 @@ const Index = () => {
                 </div>
 
                 <Button
+                  onClick={() => handleBuyPackage(pkg)}
                   className={`w-full ${
                     index === 0 ? 'bg-gradient-to-r from-primary to-primary/80' :
                     index === 1 ? 'bg-gradient-to-r from-secondary to-secondary/80' :
                     'bg-gradient-to-r from-accent to-accent/80'
                   } hover:opacity-90 transition-opacity`}
-                  disabled={!walletConnected}
+                  disabled={!walletConnected || isProcessing}
                 >
                   <Icon name="ShoppingCart" className="mr-2" size={18} />
-                  Приобрести
+                  {isProcessing ? 'Обработка...' : 'Приобрести'}
                 </Button>
               </Card>
             ))}
@@ -193,7 +375,7 @@ const Index = () => {
               <div className="bg-background/50 rounded-xl p-4 mb-4">
                 <p className="text-xs text-muted-foreground mb-2">Ваша реферальная ссылка</p>
                 <p className="text-sm text-foreground font-mono break-all mb-3">
-                  https://crypto-platform.com/ref/{referralCode}
+                  {window.location.origin}?ref={referralCode}
                 </p>
                 <Button
                   onClick={copyReferralLink}
@@ -228,6 +410,8 @@ const Index = () => {
                   <Input
                     type="number"
                     placeholder="0.00"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
                     className="bg-background/50 border-border"
                     disabled={!walletConnected}
                   />
@@ -242,11 +426,12 @@ const Index = () => {
                     Пополнить
                   </Button>
                   <Button
+                    onClick={handleWithdraw}
                     className="bg-gradient-to-r from-secondary to-secondary/80 hover:opacity-90"
-                    disabled={!walletConnected}
+                    disabled={!walletConnected || isProcessing}
                   >
                     <Icon name="ArrowUpFromLine" className="mr-2" size={18} />
-                    Вывести
+                    {isProcessing ? 'Обработка...' : 'Вывести'}
                   </Button>
                 </div>
 
