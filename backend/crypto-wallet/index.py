@@ -2,11 +2,23 @@ import json
 import os
 from typing import Dict, Any
 
-PLATFORM_WALLET = "0x98b49bb2c613700D3c31266d245392bCE61bD991"
+PLATFORM_WALLETS = {
+    'BNB': '0x98b49bb2c613700D3c31266d245392bCE61bD991',
+    'BTC': '0x98b49bb2c613700D3c31266d245392bCE61bD991',
+    'USDT': '0x98b49bb2c613700D3c31266d245392bCE61bD991',
+    'ETH': '0x98b49bb2c613700D3c31266d245392bCE61bD991'
+}
+
+CRYPTO_RATES = {
+    'BNB': 1.0,
+    'BTC': 0.000015,
+    'USDT': 600.0,
+    'ETH': 0.00025
+}
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Обработка крипто-транзакций BNB (пополнение, вывод, баланс)
+    Business: Обработка мультивалютных крипто-транзакций (BNB, BTC, USDT, ETH)
     Args: event с httpMethod, body, queryStringParameters
     Returns: HTTP response с данными транзакции
     '''
@@ -40,7 +52,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({
                     'balance': '0.00',
                     'wallet': user_wallet,
-                    'platform_wallet': PLATFORM_WALLET
+                    'platform_wallets': PLATFORM_WALLETS
                 })
             }
         
@@ -66,7 +78,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         if action == 'withdraw':
             amount = body_data.get('amount', '0')
+            crypto = body_data.get('crypto', 'BNB')
             user_wallet = body_data.get('from_wallet', '')
+            platform_wallet = PLATFORM_WALLETS.get(crypto, PLATFORM_WALLETS['BNB'])
             
             return {
                 'statusCode': 200,
@@ -79,17 +93,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'success': True,
                     'transaction_hash': '0x' + 'a' * 64,
                     'amount': amount,
+                    'crypto': crypto,
                     'from': user_wallet,
-                    'to': PLATFORM_WALLET,
-                    'message': f'Вывод {amount} BNB на кошелек {PLATFORM_WALLET}'
+                    'to': platform_wallet,
+                    'message': f'Вывод {amount} {crypto} на кошелек {platform_wallet}'
                 })
             }
         
         if action == 'buy_package':
             package_id = body_data.get('package_id')
             amount = body_data.get('amount', '0')
+            crypto = body_data.get('crypto', 'BNB')
             user_wallet = body_data.get('wallet', '')
             referrer = body_data.get('referrer', '')
+            platform_wallet = PLATFORM_WALLETS.get(crypto, PLATFORM_WALLETS['BNB'])
             
             return {
                 'statusCode': 200,
@@ -103,10 +120,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'transaction_hash': '0x' + 'b' * 64,
                     'package_id': package_id,
                     'amount': amount,
+                    'crypto': crypto,
                     'from': user_wallet,
-                    'to': PLATFORM_WALLET,
+                    'to': platform_wallet,
                     'referrer': referrer,
-                    'message': f'Покупка пакета #{package_id} за {amount} BNB'
+                    'payment_address': platform_wallet,
+                    'message': f'Покупка пакета #{package_id} за {amount} {crypto}'
+                })
+            }
+        
+        if action == 'get_payment_address':
+            crypto = body_data.get('crypto', 'BNB')
+            package_id = body_data.get('package_id', 1)
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'isBase64Encoded': False,
+                'body': json.dumps({
+                    'address': PLATFORM_WALLETS.get(crypto, PLATFORM_WALLETS['BNB']),
+                    'crypto': crypto,
+                    'package_id': package_id
                 })
             }
     

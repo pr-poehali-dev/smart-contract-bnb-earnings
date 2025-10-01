@@ -1,44 +1,62 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
-import { BrowserProvider, formatEther, parseEther } from 'ethers';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const BACKEND_URL = 'https://functions.poehali.dev/792345ca-214e-4b02-9fd9-1f95c3faceef';
 const PLATFORM_WALLET = '0x98b49bb2c613700D3c31266d245392bCE61bD991';
 
+interface CryptoOption {
+  symbol: string;
+  name: string;
+  icon: string;
+}
+
+const cryptoOptions: CryptoOption[] = [
+  { symbol: 'BNB', name: 'BNB Smart Chain', icon: '💎' },
+  { symbol: 'BTC', name: 'Bitcoin', icon: '₿' },
+  { symbol: 'USDT', name: 'Tether USDT', icon: '💵' },
+  { symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' }
+];
+
 const Index = () => {
   const { toast } = useToast();
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
-  const [balance, setBalance] = useState('0.00');
+  const [selectedCrypto, setSelectedCrypto] = useState<string>('BNB');
+  const [selectedPackage, setSelectedPackage] = useState<any>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [referralCode] = useState('REF123ABC');
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [balance] = useState('0.046');
 
   const packages = [
     {
       id: 1,
       name: 'Starter',
-      price: '0.1',
+      prices: { BNB: '0.1', BTC: '0.0015', USDT: '60', ETH: '0.025' },
       commission: '3%',
       benefits: ['1 уровень рефералов', 'Базовая комиссия', 'Еженедельные выплаты']
     },
     {
       id: 2,
       name: 'Professional',
-      price: '0.5',
+      prices: { BNB: '0.5', BTC: '0.0075', USDT: '300', ETH: '0.125' },
       commission: '5%',
       benefits: ['3 уровня рефералов', 'Увеличенная комиссия', 'Ежедневные выплаты', 'Приоритетная поддержка']
     },
     {
       id: 3,
       name: 'VIP',
-      price: '1.0',
+      prices: { BNB: '1.0', BTC: '0.015', USDT: '600', ETH: '0.25' },
       commission: '10%',
       benefits: ['5 уровней рефералов', 'Максимальная комиссия', 'Моментальные выплаты', 'VIP поддержка', 'Бонусы за объем']
     }
@@ -50,196 +68,67 @@ const Index = () => {
     { id: 3, address: '0x9c3b...7e4d', level: 1, earned: '0.023', status: 'active' }
   ];
 
-  useEffect(() => {
-    if (typeof window.ethereum !== 'undefined') {
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
-          setWalletConnected(false);
-          setWalletAddress('');
-          setBalance('0.00');
-        } else {
-          setWalletAddress(accounts[0]);
-          loadBalance(accounts[0]);
-        }
-      });
-    }
-  }, []);
-
-  const loadBalance = async (address: string) => {
-    try {
-      const provider = new BrowserProvider(window.ethereum);
-      const balance = await provider.getBalance(address);
-      setBalance(parseFloat(formatEther(balance)).toFixed(4));
-    } catch (error) {
-      console.error('Error loading balance:', error);
-    }
-  };
-
-  const connectWallet = async () => {
-    if (typeof window.ethereum === 'undefined') {
-      toast({
-        title: 'MetaMask не найден',
-        description: 'Пожалуйста, установите MetaMask для работы с платформой',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      const provider = new BrowserProvider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
-      
-      if (accounts.length > 0) {
-        setWalletAddress(accounts[0]);
-        setWalletConnected(true);
-        await loadBalance(accounts[0]);
-        
-        toast({
-          title: 'Кошелек подключен',
-          description: `Адрес: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Ошибка подключения',
-        description: error.message || 'Не удалось подключить кошелек',
-        variant: 'destructive'
-      });
-    }
+  const copyAddress = () => {
+    navigator.clipboard.writeText(PLATFORM_WALLET);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
+    toast({
+      title: 'Адрес скопирован',
+      description: 'Адрес кошелька скопирован в буфер обмена'
+    });
   };
 
   const copyReferralLink = () => {
     const link = `${window.location.origin}?ref=${referralCode}`;
     navigator.clipboard.writeText(link);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
     toast({
       title: 'Ссылка скопирована',
       description: 'Реферальная ссылка скопирована в буфер обмена'
     });
   };
 
-  const handleWithdraw = async () => {
-    if (!withdrawAmount || parseFloat(withdrawAmount) < 0.01) {
-      toast({
-        title: 'Ошибка',
-        description: 'Минимальная сумма вывода: 0.01 BNB',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (parseFloat(withdrawAmount) > parseFloat(balance)) {
-      toast({
-        title: 'Ошибка',
-        description: 'Недостаточно средств на балансе',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      const tx = await signer.sendTransaction({
-        to: PLATFORM_WALLET,
-        value: parseEther(withdrawAmount)
-      });
-
-      toast({
-        title: 'Транзакция отправлена',
-        description: 'Ожидайте подтверждения в сети...'
-      });
-
-      await tx.wait();
-
-      await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'withdraw',
-          amount: withdrawAmount,
-          from_wallet: walletAddress,
-          tx_hash: tx.hash
-        })
-      });
-
-      await loadBalance(walletAddress);
-      setWithdrawAmount('');
-
-      toast({
-        title: 'Успешно!',
-        description: `Выведено ${withdrawAmount} BNB`
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Ошибка транзакции',
-        description: error.message || 'Не удалось выполнить транзакцию',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleBuyPackage = (pkg: any) => {
+    setSelectedPackage(pkg);
+    setShowPaymentModal(true);
   };
 
-  const handleBuyPackage = async (pkg: any) => {
-    if (!walletConnected) {
-      toast({
-        title: 'Подключите кошелек',
-        description: 'Сначала подключите MetaMask',
-        variant: 'destructive'
-      });
-      return;
-    }
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setSelectedPackage(null);
+  };
 
-    setIsProcessing(true);
+  const confirmPayment = async () => {
+    if (!selectedPackage) return;
 
     try {
-      const provider = new BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      
-      const tx = await signer.sendTransaction({
-        to: PLATFORM_WALLET,
-        value: parseEther(pkg.price)
-      });
-
-      toast({
-        title: 'Оплата отправлена',
-        description: 'Ожидайте подтверждения...'
-      });
-
-      await tx.wait();
-
-      await fetch(BACKEND_URL, {
+      const response = await fetch(BACKEND_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'buy_package',
-          package_id: pkg.id,
-          amount: pkg.price,
-          wallet: walletAddress,
-          referrer: new URLSearchParams(window.location.search).get('ref') || '',
-          tx_hash: tx.hash
+          package_id: selectedPackage.id,
+          amount: selectedPackage.prices[selectedCrypto],
+          crypto: selectedCrypto,
+          wallet: 'user_wallet',
+          referrer: new URLSearchParams(window.location.search).get('ref') || ''
         })
       });
 
-      await loadBalance(walletAddress);
+      const data = await response.json();
 
+      if (data.success) {
+        toast({
+          title: 'Заявка отправлена!',
+          description: `После отправки ${selectedPackage.prices[selectedCrypto]} ${selectedCrypto} пакет будет активирован`
+        });
+        closePaymentModal();
+      }
+    } catch (error) {
       toast({
-        title: 'Пакет куплен!',
-        description: `Вы приобрели пакет ${pkg.name} за ${pkg.price} BNB`
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Ошибка покупки',
-        description: error.message || 'Не удалось купить пакет',
+        title: 'Ошибка',
+        description: 'Не удалось создать заявку',
         variant: 'destructive'
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -247,31 +136,20 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-card to-background">
       <div className="container mx-auto px-4 py-8">
         <header className="mb-12 animate-fade-in">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
             <div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent mb-2">
                 CRYPTO PLATFORM
               </h1>
-              <p className="text-muted-foreground text-lg">Многоуровневая реферальная система на BNB</p>
+              <p className="text-muted-foreground text-lg">Многоуровневая реферальная система</p>
             </div>
-            {!walletConnected ? (
-              <Button
-                onClick={connectWallet}
-                size="lg"
-                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
-              >
-                <Icon name="Wallet" className="mr-2" size={20} />
-                Подключить кошелек
-              </Button>
-            ) : (
-              <div className="flex items-center gap-3 bg-card px-6 py-3 rounded-2xl border border-primary/20">
-                <Icon name="Wallet" className="text-primary" size={24} />
-                <div>
-                  <p className="text-xs text-muted-foreground">Баланс BNB</p>
-                  <p className="text-xl font-bold text-foreground">{balance}</p>
-                </div>
+            <div className="flex items-center gap-3 bg-card px-6 py-3 rounded-2xl border border-primary/20">
+              <Icon name="Wallet" className="text-primary" size={24} />
+              <div>
+                <p className="text-xs text-muted-foreground">Заработано</p>
+                <p className="text-xl font-bold text-foreground">{balance} BNB</p>
               </div>
-            )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -309,9 +187,30 @@ const Index = () => {
           </div>
         </header>
 
-        <section className="mb-12 animate-fade-in">
-          <h2 className="text-3xl font-bold mb-6 text-foreground">Пакеты участия</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-3xl font-bold text-foreground">Пакеты участия</h2>
+            <div className="flex items-center gap-2">
+              <Icon name="Coins" className="text-primary" size={20} />
+              <Select value={selectedCrypto} onValueChange={setSelectedCrypto}>
+                <SelectTrigger className="w-[200px] bg-card border-primary/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {cryptoOptions.map(crypto => (
+                    <SelectItem key={crypto.symbol} value={crypto.symbol}>
+                      <span className="flex items-center gap-2">
+                        <span>{crypto.icon}</span>
+                        <span>{crypto.name}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {packages.map((pkg, index) => (
               <Card
                 key={pkg.id}
@@ -334,7 +233,9 @@ const Index = () => {
                 </div>
                 
                 <div className="mb-6">
-                  <p className="text-4xl font-bold text-foreground mb-1">{pkg.price} BNB</p>
+                  <p className="text-4xl font-bold text-foreground mb-1">
+                    {pkg.prices[selectedCrypto]} {selectedCrypto}
+                  </p>
                   <p className="text-muted-foreground text-sm">единоразово</p>
                 </div>
 
@@ -354,10 +255,9 @@ const Index = () => {
                     index === 1 ? 'bg-gradient-to-r from-secondary to-secondary/80' :
                     'bg-gradient-to-r from-accent to-accent/80'
                   } hover:opacity-90 transition-opacity`}
-                  disabled={!walletConnected || isProcessing}
                 >
                   <Icon name="ShoppingCart" className="mr-2" size={18} />
-                  {isProcessing ? 'Обработка...' : 'Приобрести'}
+                  Приобрести
                 </Button>
               </Card>
             ))}
@@ -365,83 +265,37 @@ const Index = () => {
         </section>
 
         <section className="mb-12 animate-fade-in">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="p-8 bg-gradient-to-br from-card to-primary/5 border-primary/20">
-              <div className="flex items-center gap-3 mb-6">
-                <Icon name="Link" className="text-primary" size={28} />
-                <h2 className="text-2xl font-bold text-foreground">Реферальная ссылка</h2>
-              </div>
-              
-              <div className="bg-background/50 rounded-xl p-4 mb-4">
-                <p className="text-xs text-muted-foreground mb-2">Ваша реферальная ссылка</p>
-                <p className="text-sm text-foreground font-mono break-all mb-3">
-                  {window.location.origin}?ref={referralCode}
-                </p>
-                <Button
-                  onClick={copyReferralLink}
-                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
-                >
-                  <Icon name={copiedLink ? "Check" : "Copy"} className="mr-2" size={18} />
-                  {copiedLink ? 'Скопировано!' : 'Скопировать ссылку'}
-                </Button>
-              </div>
+          <Card className="p-8 bg-gradient-to-br from-card to-primary/5 border-primary/20">
+            <div className="flex items-center gap-3 mb-6">
+              <Icon name="Link" className="text-primary" size={28} />
+              <h2 className="text-2xl font-bold text-foreground">Реферальная ссылка</h2>
+            </div>
+            
+            <div className="bg-background/50 rounded-xl p-4 mb-4">
+              <p className="text-xs text-muted-foreground mb-2">Ваша реферальная ссылка</p>
+              <p className="text-sm text-foreground font-mono break-all mb-3">
+                {window.location.origin}?ref={referralCode}
+              </p>
+              <Button
+                onClick={copyReferralLink}
+                className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
+              >
+                <Icon name="Copy" className="mr-2" size={18} />
+                Скопировать ссылку
+              </Button>
+            </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Icon name="Info" size={16} />
-                  <p>Поделитесь ссылкой для получения комиссии</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Icon name="TrendingUp" size={16} />
-                  <p>Комиссия начисляется автоматически</p>
-                </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="Info" size={16} />
+                <p>Поделитесь ссылкой для получения комиссии</p>
               </div>
-            </Card>
-
-            <Card className="p-8 bg-gradient-to-br from-card to-secondary/5 border-secondary/20">
-              <div className="flex items-center gap-3 mb-6">
-                <Icon name="Wallet" className="text-secondary" size={28} />
-                <h2 className="text-2xl font-bold text-foreground">Управление балансом</h2>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon name="TrendingUp" size={16} />
+                <p>Комиссия начисляется автоматически</p>
               </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-muted-foreground mb-2 block">Сумма BNB</label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    className="bg-background/50 border-border"
-                    disabled={!walletConnected}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:opacity-90"
-                    disabled={!walletConnected}
-                  >
-                    <Icon name="ArrowDownToLine" className="mr-2" size={18} />
-                    Пополнить
-                  </Button>
-                  <Button
-                    onClick={handleWithdraw}
-                    className="bg-gradient-to-r from-secondary to-secondary/80 hover:opacity-90"
-                    disabled={!walletConnected || isProcessing}
-                  >
-                    <Icon name="ArrowUpFromLine" className="mr-2" size={18} />
-                    {isProcessing ? 'Обработка...' : 'Вывести'}
-                  </Button>
-                </div>
-
-                <div className="bg-muted/30 rounded-lg p-3 mt-4">
-                  <p className="text-xs text-muted-foreground mb-1">Минимальный вывод</p>
-                  <p className="text-sm font-semibold text-foreground">0.01 BNB</p>
-                </div>
-              </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
         </section>
 
         <section className="animate-fade-in">
@@ -483,6 +337,68 @@ const Index = () => {
           </Card>
         </section>
       </div>
+
+      {showPaymentModal && selectedPackage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <Card className="max-w-lg w-full p-8 bg-gradient-to-br from-card to-primary/10 border-primary/30">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-foreground">Оплата пакета {selectedPackage.name}</h3>
+              <Button variant="ghost" size="icon" onClick={closePaymentModal}>
+                <Icon name="X" size={24} />
+              </Button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-background/50 rounded-xl p-4">
+                <p className="text-sm text-muted-foreground mb-2">Выбранная валюта</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{cryptoOptions.find(c => c.symbol === selectedCrypto)?.icon}</span>
+                  <span className="text-lg font-bold text-foreground">{selectedCrypto}</span>
+                </div>
+              </div>
+
+              <div className="bg-background/50 rounded-xl p-4">
+                <p className="text-sm text-muted-foreground mb-2">Сумма к оплате</p>
+                <p className="text-3xl font-bold text-primary">
+                  {selectedPackage.prices[selectedCrypto]} {selectedCrypto}
+                </p>
+              </div>
+
+              <div className="bg-background/50 rounded-xl p-4">
+                <p className="text-sm text-muted-foreground mb-2">Адрес для оплаты</p>
+                <div className="flex items-center gap-2 bg-background rounded-lg p-3">
+                  <p className="text-sm font-mono text-foreground flex-1 break-all">{PLATFORM_WALLET}</p>
+                  <Button size="icon" variant="ghost" onClick={copyAddress}>
+                    <Icon name={copiedAddress ? "Check" : "Copy"} size={18} />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-accent/10 border border-accent/30 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Icon name="Info" className="text-accent mt-1" size={20} />
+                  <div className="text-sm text-foreground">
+                    <p className="font-semibold mb-1">Инструкция:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Откройте Gem Wallet или любой другой крипто-кошелек</li>
+                      <li>Отправьте точную сумму на указанный адрес</li>
+                      <li>Пакет активируется автоматически после подтверждения</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={confirmPayment}
+                className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-lg py-6"
+              >
+                <Icon name="Check" className="mr-2" size={20} />
+                Я отправил платеж
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
