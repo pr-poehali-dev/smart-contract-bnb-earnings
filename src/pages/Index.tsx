@@ -14,7 +14,10 @@ import {
 } from '@/components/ui/select';
 
 const BACKEND_URL = 'https://functions.poehali.dev/792345ca-214e-4b02-9fd9-1f95c3faceef';
-const PLATFORM_WALLET = '0x98b49bb2c613700D3c31266d245392bCE61bD991';
+const PLATFORM_WALLETS = {
+  BNB: '0x98b49bb2c613700D3c31266d245392bCE61bD991',
+  BTC: 'bc1qpxvpn87fqq2fjgvqdljhv2wzpumhfqxnnvek6r'
+};
 
 interface CryptoOption {
   symbol: string;
@@ -94,12 +97,13 @@ const Index = () => {
   const currentCrypto = cryptoOptions.find(c => c.symbol === selectedCrypto)!;
 
   const copyAddress = () => {
-    navigator.clipboard.writeText(PLATFORM_WALLET);
+    const walletAddress = PLATFORM_WALLETS[selectedCrypto as keyof typeof PLATFORM_WALLETS];
+    navigator.clipboard.writeText(walletAddress);
     setCopiedAddress(true);
     setTimeout(() => setCopiedAddress(false), 2000);
     toast({
       title: 'Адрес скопирован',
-      description: 'Адрес кошелька скопирован в буфер обмена'
+      description: `${selectedCrypto} адрес кошелька скопирован в буфер обмена`
     });
   };
 
@@ -567,9 +571,9 @@ const Index = () => {
               </div>
 
               <div className="bg-background/50 rounded-xl p-4">
-                <p className="text-sm text-muted-foreground mb-2">Адрес для пополнения</p>
+                <p className="text-sm text-muted-foreground mb-2">Адрес для пополнения {selectedCrypto === 'BTC' ? '(Сеть Bitcoin)' : '(Сеть BNB Smart Chain)'}</p>
                 <div className="flex items-center gap-2 bg-background rounded-lg p-3">
-                  <p className="text-sm font-mono text-foreground flex-1 break-all">{PLATFORM_WALLET}</p>
+                  <p className="text-sm font-mono text-foreground flex-1 break-all">{PLATFORM_WALLETS[selectedCrypto as keyof typeof PLATFORM_WALLETS]}</p>
                   <Button size="icon" variant="ghost" onClick={copyAddress}>
                     <Icon name={copiedAddress ? "Check" : "Copy"} size={18} />
                   </Button>
