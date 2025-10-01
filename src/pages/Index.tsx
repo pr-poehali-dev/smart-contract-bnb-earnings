@@ -717,9 +717,9 @@ const Index = () => {
               </div>
 
               <div className="bg-background/50 rounded-xl p-4">
-                <p className="text-sm text-muted-foreground mb-2">Адрес для оплаты</p>
+                <p className="text-sm text-muted-foreground mb-2">Адрес для оплаты {selectedCrypto === 'BTC' ? '(Сеть Bitcoin)' : '(Сеть BNB Smart Chain)'}</p>
                 <div className="flex items-center gap-2 bg-background rounded-lg p-3">
-                  <p className="text-sm font-mono text-foreground flex-1 break-all">{PLATFORM_WALLET}</p>
+                  <p className="text-sm font-mono text-foreground flex-1 break-all">{PLATFORM_WALLETS[selectedCrypto as keyof typeof PLATFORM_WALLETS]}</p>
                   <Button size="icon" variant="ghost" onClick={copyAddress}>
                     <Icon name={copiedAddress ? "Check" : "Copy"} size={18} />
                   </Button>
