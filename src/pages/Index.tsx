@@ -252,11 +252,19 @@ const Index = () => {
       <div className="container mx-auto px-4 py-8">
         <header className="mb-12 animate-fade-in">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent mb-2">
-                CRYPTO PLATFORM
-              </h1>
-              <p className="text-muted-foreground text-lg">Многоуровневая реферальная система</p>
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent mb-2">
+                  CRYPTO PLATFORM
+                </h1>
+                <p className="text-muted-foreground text-lg">Многоуровневая реферальная система</p>
+              </div>
+              <a href="/admin" className="hidden md:block">
+                <Button variant="outline" className="border-primary/30">
+                  <Icon name="Settings" className="mr-2" size={18} />
+                  Админ
+                </Button>
+              </a>
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3 bg-card px-6 py-3 rounded-2xl border border-primary/20">
