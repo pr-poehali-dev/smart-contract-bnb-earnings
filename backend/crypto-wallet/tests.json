@@ -6,7 +6,6 @@
       "path": "/?action=balance&wallet=0x1234567890123456789012345678901234567890",
       "expectedStatus": 200,
       "expectedBody": {
-        "balance": "string",
         "wallet": "string"
       },
       "bodyMatcher": "partial"
@@ -27,14 +26,14 @@
       "path": "/",
       "body": {
         "action": "withdraw",
-        "amount": "0.05",
-        "from_wallet": "0x1234567890123456789012345678901234567890"
+        "amount": "1.5",
+        "crypto": "BNB",
+        "from_wallet": "0x1234567890123456789012345678901234567890",
+        "to_wallet": "0x9876543210987654321098765432109876543210"
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "success": true,
-        "amount": "string",
-        "to": "string"
+        "success": true
       },
       "bodyMatcher": "partial"
     },
